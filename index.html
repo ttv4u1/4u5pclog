@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SPRD v2.4.0 - Sistem Pengurusan Rekod Digital</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap');
+        
+        body {
+            font-family: 'Poppins', sans-serif;
+            background: linear-gradient(rgba(0,0,0,0.6), rgba(0,0,0,0.6)), 
+                        url('https://images.alphacoders.com/132/1326442.png'); /* Anime Action Background */
+            background-size: cover;
+            background-attachment: fixed;
+            background-position: center;
+        }
+
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(15px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+        }
+
+        .btn-realistic {
+            transition: all 0.2s ease-in-out;
+            box-shadow: 0 4px 0 rgb(15, 23, 42);
+        }
+
+        .btn-realistic:active {
+            transform: translateY(4px);
+            box-shadow: 0 0 0;
+        }
+
+        .late-entry { background-color: #fee2e2 !important; color: #dc2626; font-weight: bold; }
+        .ot-entry { background-color: #dcfce7 !important; color: #16a34a; font-weight: bold; }
+
+        @media (max-width: 768px) {
+            .side-by-side { flex-direction: column; }
+        }
+    </style>
+</head>
+<body class="min-h-screen text-slate-800" x-data="appData()">
+
+    <!-- HEADER LOGO & JAM -->
+    <header class="glass-panel m-4 p-4 rounded-2xl flex flex-wrap justify-between items-center border-b-4 border-blue-600">
+        <div class="flex items-center gap-4">
+            <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/2/26/Coat_of_arms_of_Malaysia.svg/1200px-Coat_of_arms_of_Malaysia.svg.png" alt="Jata" class="h-16">
+            <img src="https://via.placeholder.com/60?text=Jabatan" alt="Logo Jabatan" class="h-14">
+            <img src="https://via.placeholder.com/60?text=Penguatkuasa" alt="Logo Penguatkuasa" class="h-14">
+            <div class="ml-4 border-l-2 pl-4 hidden md:block">
+                <h1 class="text-xl font-bold text-blue-900 leading-tight">SISTEM PENGURUSAN REKOD DIGITAL</h1>
+                <p class="text-sm font-semibold">VERSI KORPORAT 2.4.0 (STABLE)</p>
+            </div>
+        </div>
+
+        <div class="text-right bg-blue-900 text-white p-3 rounded-xl shadow-inner">
+            <div class="text-2xl font-mono font-bold" x-text="realtimeClock"></div>
+            <div class="text-xs uppercase tracking-widest" x-text="realtimeDay"></div>
+        </div>
+    </header>
+
+    <!-- AUTH SECTION -->
+    <div x-show="!isLoggedIn" class="fixed inset-0 z-50 flex items-center justify-center bg-black/80">
+        <div class="glass-panel p-8 rounded-3xl text-center max-w-sm w-full mx-4">
+            <h2 class="text-2xl font-bold mb-6">Log Masuk Sistem</h2>
+            <button @click="loginGoogle" class="btn-realistic bg-white text-gray-700 font-bold py-3 px-6 rounded-xl flex items-center justify-center gap-3 w-full border-2 border-gray-200">
+                <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" width="20">
+                Log Masuk dengan Google
+            </button>
+        </div>
+    </div>
+
+    <!-- MAIN CONTENT -->
+    <main class="p-4" x-show="isLoggedIn" x-cloak>
+        <!-- NAVIGATION -->
+        <nav class="flex gap-2 mb-6 overflow-x-auto pb-2">
+            <button @click="tab = 'kad'" :class="tab === 'kad' ? 'bg-blue-600 text-white' : 'bg-white'" class="btn-realistic px-6 py-2 rounded-full font-bold whitespace-nowrap">Kad Perakam Waktu</button>
+            <button @click="tab = 'log'" :class="tab === 'log' ? 'bg-green-600 text-white' : 'bg-white'" class="btn-realistic px-6 py-2 rounded-full font-bold whitespace-nowrap">Log Perjalanan</button>
+            <button @click="tab = 'upload'" :class="tab === 'upload' ? 'bg-purple-600 text-white' : 'bg-white'" class="btn-realistic px-6 py-2 rounded-full font-bold whitespace-nowrap">Muat Naik Resit/Odo</button>
+        </nav>
+
+        <!-- SECTION: KAD PERAKAM WAKTU -->
+        <div x-show="tab === 'kad'" class="space-y-6">
+            <div class="glass-panel p-6 rounded-3xl overflow-x-auto">
+                <div class="flex flex-col md:flex-row gap-4 mb-6">
+                    <input type="text" placeholder="NAMA" class="border p-2 rounded-lg flex-1">
+                    <input type="text" placeholder="KEM./JAB." class="border p-2 rounded-lg flex-1">
+                    <input type="text" placeholder="BAHAGIAN" class="border p-2 rounded-lg flex-1">
+                    <select class="border p-2 rounded-lg"><option>JANUARI</option><option>FEBRUARI</option></select>
+                </div>
+
+                <div class="flex flex-col xl:flex-row gap-8 side-by-side">
+                    <!-- MUKA 1 (1-15) -->
+                    <div class="flex-1">
+                        <h3 class="bg-blue-800 text-white p-2 rounded-t-lg font-bold text-center">MUKA 1 (A NO: 1-15)</h3>
+                        <table class="w-full text-sm border-collapse border border-slate-300">
+                            <thead class="bg-slate-100">
+                                <tr>
+                                    <th class="border p-2">TARIKH</th>
+                                    <th class="border p-2">MASUK</th>
+                                    <th class="border p-2">KELUAR</th>
+                                    <th class="border p-2">MASUK</th>
+                                    <th class="border p-2">KELUAR</th>
+                                    <th class="border p-2">KENYATAAN</th>
+                                    <th class="border p-2">T/T</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <template x-for="i in 15">
+                                    <tr>
+                                        <td class="border p-1 text-center font-bold" x-text="i"></td>
+                                        <td class="border p-1"><input type="time" class="w-full" @change="checkTime($event)"></td>
+                                        <td class="border p-1"><input type="time" class="w-full"></td>
+                                        <td class="border p-1"><input type="time" class="w-full"></td>
+                                        <td class="border p-1"><input type="time" class="w-full"></td>
+                                        <td class="border p-1"><input type="text" class="w-full outline-none"></td>
+                                        <td class="border p-1 text-center"><i data-lucide="signature" class="w-4 h-4 mx-auto text-slate-400"></i></td>
+                                    </tr>
+                                </template>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- MUKA 2 (16-31) -->
+                    <div class="flex-1">
+                        <h3 class="bg-blue-800 text-white p-2 rounded-t-lg font-bold text-center">MUKA 2 (B NO: 16-31)</h3>
+                        <table class="w-full text-sm border-collapse border border-slate-300">
+                            <thead class="bg-slate-100">
+                                <tr>
+                                    <th class="border p-2">TARIKH</th>
+                                    <th class="border p-2">MASUK</th>
+                                    <th class="border p-2">KELUAR</th>
+                                    <th class="border p-2">MASUK</th>
+                                    <th class="border p-2">KELUAR</th>
+                                    <th class="border p-2">KENYATAAN</th>
+                                    <th class="border p-2">T/T</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <template x-for="i in 16">
+                                    <tr>
+                                        <td class="border p-1 text-center font-bold" x-text="i+15"></td>
+                                        <td class="border p-1"><input type="time" class="w-full"></td>
+                                        <td class="border p-1"><input type="time" class="w-full"></td>
+                                        <td class="border p-1"><input type="time" class="w-full"></td>
+                                        <td class="border p-1"><input type="time" class="w-full"></td>
+                                        <td class="border p-1"><input type="text" class="w-full outline-none"></td>
+                                        <td class="border p-1 text-center"><i data-lucide="signature" class="w-4 h-4 mx-auto text-slate-400"></i></td>
+                                    </tr>
+                                </template>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- SECTION: LOG PERJALANAN -->
+        <div x-show="tab === 'log'" class="space-y-6">
+            <div class="glass-panel p-6 rounded-3xl overflow-x-auto">
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6 bg-green-50 p-4 rounded-xl border-l-8 border-green-600">
+                    <div><label class="block text-xs font-bold">BULAN REKOD</label><input type="month" class="w-full p-2 rounded border"></div>
+                    <div><label class="block text-xs font-bold">NO. PENDAFTARAN</label><input type="text" x-model="carPlate" class="w-full p-2 rounded border"></div>
+                    <div><label class="block text-xs font-bold">ODO PERMULAAN</label><input type="number" x-model.number="startOdo" class="w-full p-2 rounded border"></div>
+                    <div><label class="block text-xs font-bold">BAHAGIAN/UNIT</label><input type="text" class="w-full p-2 rounded border"></div>
+                </div>
+
+                <table class="w-full text-xs border-collapse border border-slate-300">
+                    <thead class="bg-green-700 text-white">
+                        <tr>
+                            <th class="border p-2">TARIKH</th>
+                            <th class="border p-2">MASA (PERGI/BALIK)</th>
+                            <th class="border p-2">PEMANDU</th>
+                            <th class="border p-2">TUJUAN & LOKASI</th>
+                            <th class="border p-2">PELULUS</th>
+                            <th class="border p-2">PENGGUNA</th>
+                            <th class="border p-2">ODO AKHIR</th>
+                            <th class="border p-2">JARAK (KM)</th>
+                            <th class="border p-2">KOS/RESIT</th>
+                            <th class="border p-2">LITER</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <template x-for="(row, index) in tripLogs" :key="index">
+                            <tr class="hover:bg-yellow-50">
+                                <td class="border p-1"><input type="date" class="w-full border-0"></td>
+                                <td class="border p-1">
+                                    <div class="flex flex-col gap-1">
+                                        <input type="time" class="border p-1 rounded">
+                                        <input type="time" class="border p-1 rounded">
+                                    </div>
+                                </td>
+                                <td class="border p-1"><input type="text" class="w-full border-0"></td>
+                                <td class="border p-1"><textarea class="w-full border-0" rows="2"></textarea></td>
+                                <td class="border p-1"><input type="text" class="w-full border-0"></td>
+                                <td class="border p-1"><input type="text" class="w-full border-0"></td>
+                                <td class="border p-1"><input type="number" x-model.number="row.endOdo" class="w-full border-0 font-bold text-blue-700"></td>
+                                <td class="border p-1 text-center font-bold" x-text="calculateDistance(index)"></td>
+                                <td class="border p-1">
+                                    <input type="number" x-model.number="row.cost" placeholder="RM" class="w-full border-b mb-1">
+                                    <input type="text" placeholder="No. Resit" class="w-full text-[10px]">
+                                </td>
+                                <td class="border p-1"><input type="number" class="w-full border-0"></td>
+                            </tr>
+                        </template>
+                    </tbody>
+                </table>
+                <div class="mt-4 flex justify-between items-center bg-slate-800 text-white p-4 rounded-xl">
+                    <button @click="addTripRow" class="btn-realistic bg-blue-500 hover:bg-blue-400 px-4 py-2 rounded-lg text-sm">+ Tambah Baris</button>
+                    <div class="text-xl font-bold">JUMLAH KESELURUHAN KOS: RM <span x-text="totalFuelCost"></span></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- SECTION: UPLOAD & GALLERY -->
+        <div x-show="tab === 'upload'" class="space-y-6">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <!-- Upload Forms -->
+                <div class="glass-panel p-6 rounded-3xl border-t-8 border-purple-500">
+                    <h3 class="font-bold mb-4 flex items-center gap-2"><i data-lucide="fuel"></i> Resit Minyak</h3>
+                    <input type="file" @change="uploadFile($event, 'fuel')" class="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-purple-50 file:text-purple-700 hover:file:bg-purple-100 cursor-pointer">
+                </div>
+                <div class="glass-panel p-6 rounded-3xl border-t-8 border-blue-500">
+                    <h3 class="font-bold mb-4 flex items-center gap-2"><i data-lucide="credit-card"></i> Resit TNG</h3>
+                    <input type="file" @change="uploadFile($event, 'tng')" class="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer">
+                </div>
+                <div class="glass-panel p-6 rounded-3xl border-t-8 border-orange-500">
+                    <h3 class="font-bold mb-4 flex items-center gap-2"><i data-lucide="gauge"></i> Gambar Odometer</h3>
+                    <input type="file" @change="uploadFile($event, 'odo')" class="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-orange-50 file:text-orange-700 hover:file:bg-orange-100 cursor-pointer">
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- FOOTER PROFILE (AUTOHIDE) -->
+    <footer x-show="isLoggedIn" class="fixed bottom-0 right-0 p-4 transition-transform translate-y-2 hover:translate-y-0">
+        <div class="glass-panel p-3 rounded-2xl flex items-center gap-3 shadow-2xl border-2 border-blue-400">
+            <div class="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center text-white font-bold" x-text="userName.charAt(0)"></div>
+            <div class="text-xs">
+                <p class="font-bold" x-text="userName"></p>
+                <button @click="logout" class="text-red-600 hover:underline">Log Keluar</button>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        function appData() {
+            return {
+                tab: 'kad',
+                isLoggedIn: false,
+                userName: 'User Government',
+                realtimeClock: '',
+                realtimeDay: '',
+                startOdo: 0,
+                tripLogs: [{ endOdo: 0, cost: 0 }],
+                
+                const supabase = supabase.createClient('https://zkomhgzlcfjzhijhptec.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inprb21oZ3psY2ZqemhpamhwdGVjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc0NTk3MTQsImV4cCI6MjA5MzAzNTcxNH0.p51eTeql9tiHXYIaGuxh0DuDET9F_R7F5j2eG-99QBk');
+
+// Di dalam alpineJS appData()
+async loginGoogle() {
+    const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+    });
+    if (error) console.error('Ralat:', error.message);
+},
+
+async uploadFile(event, type) {
+    const file = event.target.files[0];
+    const { data, error } = await supabase.storage
+        .from('documents')
+        .upload(`${type}/${Date.now()}_${file.name}`, file);
+    
+    if (data) alert('Berjaya dimuat naik!');
+}
+
+                updateTime() {
+                    const now = new Date();
+                    this.realtimeClock = now.toLocaleTimeString('ms-MY', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
+                    this.realtimeDay = now.toLocaleDateString('ms-MY', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+                },
+
+                const supabase = supabase.createClient('https://zkomhgzlcfjzhijhptec.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inprb21oZ3psY2ZqemhpamhwdGVjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc0NTk3MTQsImV4cCI6MjA5MzAzNTcxNH0.p51eTeql9tiHXYIaGuxh0DuDET9F_R7F5j2eG-99QBk');
+
+// Di dalam alpineJS appData()
+async loginGoogle() {
+    const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+    });
+    if (error) console.error('Ralat:', error.message);
+},
+
+async uploadFile(event, type) {
+    const file = event.target.files[0];
+    const { data, error } = await supabase.storage
+        .from('documents')
+        .upload(`${type}/${Date.now()}_${file.name}`, file);
+    
+    if (data) alert('Berjaya dimuat naik!');
+}
+
+                logout() { this.isLoggedIn = false; },
+
+                checkTime(e) {
+                    const time = e.target.value;
+                    const [hours, minutes] = time.split(':').map(Number);
+                    const totalMinutes = hours * 60 + minutes;
+
+                    // Reset classes
+                    e.target.classList.remove('late-entry', 'ot-entry');
+
+                    // Lewat: > 9:00 AM (540 mins)
+                    if (totalMinutes > 540) {
+                        e.target.classList.add('late-entry');
+                    }
+                    // OT Pagi: < 7:00 AM (420 mins)
+                    if (totalMinutes < 420) {
+                        e.target.classList.add('ot-entry');
+                    }
+                },
+
+                addTripRow() {
+                    this.tripLogs.push({ endOdo: 0, cost: 0 });
+                },
+
+                calculateDistance(index) {
+                    let prevOdo = index === 0 ? this.startOdo : this.tripLogs[index - 1].endOdo;
+                    let currentOdo = this.tripLogs[index].endOdo;
+                    let dist = currentOdo - prevOdo;
+                    return dist > 0 ? dist : 0;
+                },
+
+                get totalFuelCost() {
+                    return this.tripLogs.reduce((sum, row) => sum + (Number(row.cost) || 0), 0).toFixed(2);
+                },
+
+                uploadFile(event, type) {
+                    alert(`Fail ${type} telah sedia untuk dimuat naik ke Supabase Storage.`);
+                }
+            }
+        }
+    </script>
+</body>
+</html>
